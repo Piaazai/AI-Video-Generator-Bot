@@ -24,15 +24,6 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Missing taskId' });
     }
 
-    // Stop polling for this task if it's still running
-    const pollingData = activePollingIntervals.get(taskId);
-    if (pollingData) {
-      clearInterval(pollingData.pollInterval);
-      clearInterval(pollingData.loadingInterval);
-      activePollingIntervals.delete(taskId);
-      console.log(`[${timestamp}] Stopped polling for task ${taskId} (callback received)`);
-    }
-
     // Find user by taskId
     const { data: tasks, error } = await supabase
       .from('user_tasks')
@@ -56,18 +47,24 @@ router.post('/', async (req, res) => {
 
     console.log(`[${timestamp}] Processing callback for task ${taskId}, user ${userId}, state: ${state}`);
 
-    // Get loading message ID from task result_json (stored temporarily)
+    // Get loading message ID from task result_json BEFORE updating it
+    // (loadingMessageId is stored temporarily in result_json before callback arrives)
     let loadingMessageId = null;
     try {
       if (task.result_json) {
         const tempData = JSON.parse(task.result_json);
-        loadingMessageId = tempData.loadingMessageId;
+        // Check if it's the temporary data with loadingMessageId
+        if (tempData.loadingMessageId) {
+          loadingMessageId = tempData.loadingMessageId;
+          console.log(`[${timestamp}] Found loading message ID: ${loadingMessageId} for task ${taskId}`);
+        }
       }
     } catch (e) {
       // Ignore if result_json is not JSON or doesn't have loadingMessageId
+      // It might already be the actual result JSON from a previous callback
     }
 
-    // Update task status
+    // Update task status (this will replace result_json with actual result)
     await supabase
       .from('user_tasks')
       .update({
