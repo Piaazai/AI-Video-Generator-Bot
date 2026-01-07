@@ -7,13 +7,16 @@ import { createSupabaseClient } from '../db/supabase.js';
 dotenv.config();
 
 const token = process.env.TELEGRAM_BOT_TOKEN;
+const CALLBACK_BASE_URL = process.env.CALLBACK_BASE_URL;
 
 if (!token) {
   console.error(`[${new Date().toISOString()}] ERROR: TELEGRAM_BOT_TOKEN is not set`);
   process.exit(1);
 }
 
-export const bot = new TelegramBot(token, { polling: true });
+// Use Webhook in production (when CALLBACK_BASE_URL is set), Polling in development
+const useWebhook = !!CALLBACK_BASE_URL;
+export const bot = new TelegramBot(token, { polling: !useWebhook });
 
 // Initialize Supabase
 const supabase = createSupabaseClient();
@@ -32,17 +35,12 @@ bot.on('polling_error', (error) => {
   
   // Handle 409 conflict error (multiple bot instances)
   if (error.response?.body?.error_code === 409) {
-    console.error(`[${timestamp}] ERROR 409: Multiple bot instances detected. Stopping polling...`);
-    console.error(`[${timestamp}] Make sure only one instance of the bot is running.`);
+    console.error(`[${timestamp}] ERROR 409: Multiple bot instances detected.`);
+    console.error(`[${timestamp}] This usually happens in production. Consider using Webhook mode.`);
+    console.error(`[${timestamp}] Set CALLBACK_BASE_URL environment variable to enable Webhook mode.`);
     
-    // Stop polling and exit gracefully
-    bot.stopPolling().then(() => {
-      console.log(`[${timestamp}] Polling stopped. Please restart the bot.`);
-      process.exit(1);
-    }).catch((stopError) => {
-      console.error(`[${timestamp}] Error stopping polling:`, stopError);
-      process.exit(1);
-    });
+    // Don't exit immediately, try to recover
+    // The server will set up webhook if CALLBACK_BASE_URL is available
   }
 });
 

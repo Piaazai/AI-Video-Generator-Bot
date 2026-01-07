@@ -69,11 +69,11 @@ export async function startVideoGeneration(userState, supabase) {
     throw new Error('Missing required data: videoUrl, imageUrl, or prompt');
   }
 
+  // Always include callBackUrl if CALLBACK_BASE_URL is set
   const callBackUrl = CALLBACK_BASE_URL ? `${CALLBACK_BASE_URL}/api/callback` : undefined;
 
   const requestData = {
     model: 'kling-2.6/motion-control',
-    ...(callBackUrl && { callBackUrl }),
     input: {
       prompt: userState.prompt,
       input_urls: [userState.imageUrl],
@@ -81,6 +81,11 @@ export async function startVideoGeneration(userState, supabase) {
       mode: '720p' // Can be changed to '1080p' for higher quality
     }
   };
+
+  // Add callBackUrl if available (required for production)
+  if (callBackUrl) {
+    requestData.callBackUrl = callBackUrl;
+  }
 
   console.log(`[${timestamp}] Creating video generation task for user ${userState.userId}`);
 
