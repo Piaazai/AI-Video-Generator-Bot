@@ -78,6 +78,7 @@ export async function startVideoGeneration(userState, supabase) {
       prompt: userState.prompt,
       input_urls: [userState.imageUrl],
       video_urls: [userState.videoUrl],
+      character_orientation: 'video', // Required: 'image' (max 10s) or 'video' (max 30s)
       mode: '720p' // Can be changed to '1080p' for higher quality
     }
   };
